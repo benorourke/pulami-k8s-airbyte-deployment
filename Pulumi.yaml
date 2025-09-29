@@ -1,0 +1,4 @@
+name: pulami-k8s-airbyte-deployment
+runtime:
+  name: python
+description: Airbyte on Kubernetes via Helm (Pulumi)
