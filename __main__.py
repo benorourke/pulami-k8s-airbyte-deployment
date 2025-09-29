@@ -21,7 +21,7 @@ app_image_tag  = cfg.get("appImageTag")
 airbyte_url    = cfg.get("airbyteUrl")
 
 # Database configuration
-db_name = "airbyte"
+db_name = "db-airbyte"
 db_username = "airbyte_user"
 db_password = "airbyte_password123"
 
@@ -73,7 +73,7 @@ postgres_statefulset = StatefulSet(
         "namespace": ns.metadata["name"],
     },
     spec={
-        "serviceName": "postgres-service",
+        "serviceName": "airbyte-db-svc",  # Changed to match expected service name
         "replicas": 1,
         "selector": {
             "matchLabels": {
@@ -144,11 +144,11 @@ postgres_statefulset = StatefulSet(
     opts=ResourceOptions(depends_on=[ns, postgres_config, postgres_pvc]),
 )
 
-# Create PostgreSQL Service
+# Create PostgreSQL Service with the name Airbyte expects
 postgres_service = Service(
-    "postgres-service",
+    "airbyte-db-svc",
     metadata={
-        "name": "postgres-service",
+        "name": "airbyte-db-svc",  # Changed to match expected service name
         "namespace": ns.metadata["name"],
     },
     spec={
@@ -173,9 +173,12 @@ db_secret = Secret(
         "namespace": ns.metadata["name"],
     },
     string_data={
-        "DATABASE_USER": db_username,  # Changed from "database-user" to "DATABASE_USER"
-        "DATABASE_PASSWORD": db_password,  # Changed from "database-password" to "DATABASE_PASSWORD"
-        "DATABASE_URL": f"jdbc:postgresql://postgres-service.{ns_name}.svc.cluster.local:5432/{db_name}",  # Changed from "database-url" to "DATABASE_URL"
+        "DATABASE_USER": db_username,
+        "DATABASE_PASSWORD": db_password,
+        "DATABASE_URL": f"jdbc:postgresql://airbyte-db-svc.{ns_name}.svc.cluster.local:5432/{db_name}",
+        "database-user": db_username,  # Keep both formats for compatibility
+        "database-password": db_password,
+        "database-url": f"jdbc:postgresql://airbyte-db-svc.{ns_name}.svc.cluster.local:5432/{db_name}",
     },
     opts=ResourceOptions(depends_on=[ns, postgres_service]),
 )
@@ -185,7 +188,6 @@ values = {
     "global": {
         "airbyteUrl": airbyte_url,
         "image": {
-            # Most Airbyte components inherit this image tag
             "tag": app_image_tag,
         },
         "database": {
@@ -202,11 +204,10 @@ values = {
         }
     },
     "postgresql": {
-        # Disable the built-in PostgreSQL since we're using our own K8s deployment
         "enabled": False,
     },
     "externalDatabase": {
-        "host": f"postgres-service.{ns_name}.svc.cluster.local",
+        "host": f"airbyte-db-svc.{ns_name}.svc.cluster.local",  # Updated to match service name
         "port": 5432,
         "database": db_name,
         "user": db_username,
@@ -220,16 +221,16 @@ airbyte = Release(
     "airbyte",
     namespace=ns.metadata["name"],
     chart=chart_name,
-    version=chart_version,  # pin chart version for reproducibility
+    version=chart_version,
     repository_opts={"repo": repo_url},
     values=values,
-    timeout=1800,  # 30 minutes timeout (default is usually 300 seconds/5 minutes)
-    opts=ResourceOptions(depends_on=[ns, db_secret]),
+    timeout=1800,
+    opts=ResourceOptions(depends_on=[ns, db_secret, postgres_service]),  # Add postgres_service dependency
 )
 
 # Handy stack outputs
 pulumi.export("namespace", ns.metadata["name"])
 pulumi.export("helmReleaseName", airbyte.name)
 pulumi.export("airbyteUrl", airbyte_url)
-pulumi.export("databaseEndpoint", f"postgres-service.{ns_name}.svc.cluster.local:5432")
+pulumi.export("databaseEndpoint", f"airbyte-db-svc.{ns_name}.svc.cluster.local:5432")
 pulumi.export("databaseName", db_name)
