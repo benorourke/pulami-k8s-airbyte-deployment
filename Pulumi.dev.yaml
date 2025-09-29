@@ -6,11 +6,4 @@ config:
   airbyte:appImageTag: "1.8.0" # pin the Airbyte app image tag
   airbyte:airbyteUrl: "http://127.0.0.1:8080"
 
-  aws:region: eu-west-2
-  aws:accessKey: localstack
-  aws:secretKey: localstack
-  aws:endpoints:
-    - service: rds
-      url: http://localhost:4566
-
-encryptionsalt: v1:hIIOHXNLN5k=:v1:NYIgj9Yzwv5rSdhW:dOd1tPAg29kFT/xIThPgqiXJ1Mu6xg==
+encryptionsalt: v1:h338bJMMyeE=:v1:F/YKU7+aUNOCtzAp:9LYZ5fuOq3h+xObMiELK1jZXsKbtrA==
